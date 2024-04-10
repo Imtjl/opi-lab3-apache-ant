@@ -44,7 +44,7 @@
                 <include name="*.jar" />
             </fileset>
         </copy>
-        <war destfile="${basedir}/${war.name}" webxml="${webapp.dir}/WEB-INF/web.xml">
+        <war destfile="../${war.name}" webxml="${webapp.dir}/WEB-INF/web.xml">
             <fileset dir="${build.dir}/webapp">
                 <include name="**/*" />
                 <exclude name="**/WEB-INF/web.xml" />
