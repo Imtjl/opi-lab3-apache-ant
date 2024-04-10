@@ -1,0 +1,61 @@
+<!DOCTYPE project SYSTEM "build.dtd">
+<project name="interactive-graph-ui" default="compile" basedir="./interactive-graph-ui">
+    <property file="../build.properties" />
+    <!-- Define the classpath for the project -->
+    <path id="project.classpath">
+        <fileset dir="${lib.dir}">
+            <include name="**/*.jar" />
+        </fileset>
+    </path>
+    <!-- Clean the build directory -->
+    <target name="clean">
+        <delete dir="${build.dir}" />
+    </target>
+    <!-- Create the build directory structure -->
+    <target name="init">
+        <mkdir dir="${build.dir}" />
+        <mkdir dir="${classes.dir}" />
+    </target>
+    <target name="compile" depends="init">
+        <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false" classpath="project.classpath">
+            <classpath refid="project.classpath" />
+            <compilerarg line="-Xlint:unchecked" />
+        </javac>
+        <copy todir="${classes.dir}">
+            <fileset dir="${resources.dir}">
+                <include name="**/*" />
+            </fileset>
+        </copy>
+    </target>
+    <!-- Build the project and package it into a WAR file -->
+    <target name="build" depends="compile">
+        <copy todir="${build.dir}/webapp">
+            <fileset dir="${webapp.dir}">
+                <include name="**/*" />
+            </fileset>
+        </copy>
+        <copy todir="${build.dir}/webapp/WEB-INF/classes">
+            <fileset dir="${classes.dir}">
+                <include name="**/*" />
+            </fileset>
+        </copy>
+        <copy todir="${build.dir}/webapp/WEB-INF/lib">
+            <fileset dir="${lib.dir}">
+                <include name="*.jar" />
+            </fileset>
+        </copy>
+        <war destfile="${basedir}/${war.name}" webxml="${webapp.dir}/WEB-INF/web.xml">
+            <fileset dir="${build.dir}/webapp">
+                <include name="**/*" />
+                <exclude name="**/WEB-INF/web.xml" />
+            </fileset>
+        </war>
+    </target>
+    <!-- TODO -->
+    <target name="xml"></target>
+    <target name="native2ascii"></target>
+    <target name="scp"></target>
+    <target name="alt"></target>
+    <target name="env"></target>
+    <target name="history"></target>
+</project>
