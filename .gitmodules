@@ -1,0 +1,3 @@
+[submodule "interactive-graph-ui"]
+	path = interactive-graph-ui
+	url = git@github.com:worthant/interactive-graph-ui.git
