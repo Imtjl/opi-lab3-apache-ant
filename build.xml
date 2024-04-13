@@ -140,8 +140,57 @@
         </war>
     </target>
 
+    <target name="env">
 
-    <!-- TODO -->
-    <target name="env"></target>
-    <target name="history"></target>
+        <fail unless="java.home" message="java.home is not set in env.properties" />
+        <fail unless="javac.args" message="javac.args is not set in env.properties" />
+        <fail unless="vm.args" message="vm.args is not set in env.properties" />
+
+        <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false" fork="true" executable="${java.home}/bin/javac">
+            <classpath refid="project.classpath" />
+            <compilerarg line="${javac.args}" />
+        </javac>
+
+        <copy todir="${classes.dir}">
+            <fileset dir="${resources.dir}">
+                <include name="**/*" />
+            </fileset>
+        </copy>
+
+        <java fork="true" classname="com.example.Main">
+            <jvmarg line="-Djava.home=${java.home} ${vm.args}" />
+            <classpath>
+                <path refid="project.classpath" />
+                <pathelement location="${classes.dir}" />
+            </classpath>
+        </java>
+    </target>
+
+    <target name="history" depends="compile">
+        <fail message="Project compilation failed. Attempting to find the last working revision...">
+            <condition>
+                <not>
+                    <equals arg1="${compile.result}" arg2="0" />
+                </not>
+            </condition>
+        </fail>
+
+        <svn username="worhant" password="svnIsAPileOfGarbage">
+            <log path="${basedir}" limit="1" revision="HEAD">
+                <regexp pattern="r(\d+)" />
+            </log>
+        </svn>
+
+        <property name="last.revision" value="${ant.regexp.regexpmatch(1)}" />
+
+        <svn username="worthant" password="svnIsAPileOfGarbage">
+            <info path="${basedir}" revision="${last.revision}">
+                <firstmatchmapper from="revision" to="last.working.revision" />
+            </info>
+        </svn>
+
+        <svn username="worthant" password="svnIsAPileOfGarbage">
+            <diff path="${basedir}" revision1="${last.working.revision}" revision2="HEAD" output="diff.txt" />
+        </svn>
+    </target>
 </project>
