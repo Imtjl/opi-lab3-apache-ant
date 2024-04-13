@@ -1,21 +1,27 @@
-<!DOCTYPE project SYSTEM "build.dtd">
+<!-- <!DOCTYPE project SYSTEM "build.dtd"> -->
 <project name="interactive-graph-ui" default="compile" basedir="./interactive-graph-ui">
+
+    <!-- Include variables and constants -->
     <property file="../build.properties" />
+
     <!-- Define the classpath for the project -->
     <path id="project.classpath">
         <fileset dir="${lib.dir}">
             <include name="**/*.jar" />
         </fileset>
     </path>
+
     <!-- Clean the build directory -->
     <target name="clean">
         <delete dir="${build.dir}" />
     </target>
+    
     <!-- Create the build directory structure -->
     <target name="init">
         <mkdir dir="${build.dir}" />
         <mkdir dir="${classes.dir}" />
     </target>
+
     <target name="compile" depends="init">
         <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false" classpath="project.classpath">
             <classpath refid="project.classpath" />
@@ -27,6 +33,7 @@
             </fileset>
         </copy>
     </target>
+
     <!-- Build the project and package it into a WAR file -->
     <target name="build" depends="compile">
         <copy todir="${build.dir}/webapp">
@@ -44,18 +51,97 @@
                 <include name="*.jar" />
             </fileset>
         </copy>
-        <war destfile="../${war.name}" webxml="${webapp.dir}/WEB-INF/web.xml">
+        <war destfile="${build.dir}/${war.name}" webxml="${webapp.dir}/WEB-INF/web.xml">
+            <manifest>
+                <attribute name="Manifest-Version" value="1.0"/>
+                <attribute name="Version" value="1.0-SNAPSHOT"/>
+            </manifest>
             <fileset dir="${build.dir}/webapp">
                 <include name="**/*" />
                 <exclude name="**/WEB-INF/web.xml" />
             </fileset>
         </war>
     </target>
+
+    <!-- Validate XML files -->
+    <target name="xml">
+        <xmlvalidate lenient="true">
+            <fileset dir="${basedir}">
+                <include name="**/*.xml" />
+            </fileset>
+        </xmlvalidate>
+    </target>
+
+    <!-- Run JUnit tests -->
+    <path id="test.classpath">
+        <path refid="project.classpath" />
+        <pathelement location="${build.dir}/webapp/WEB-INF/classes" />
+        <pathelement location="${build.dir}/test-classes" />
+        <fileset dir="${lib.dir}">
+            <include name="**/*.jar" />
+        </fileset>
+    </path>
+
+    <target name="test" depends="build">
+        <mkdir dir="${build.dir}/test-classes"/>
+        <javac srcdir="${test.dir}" destdir="${build.dir}/test-classes" includeantruntime="false" classpathref="test.classpath">
+            <compilerarg line="-Xlint:unchecked"/>
+        </javac>
+
+        <mkdir dir="${build.dir}/test-results"/>
+        <junitlauncher haltonfailure="true" printsummary="true">
+            <classpath>
+                <path refid="test.classpath"/>
+                <pathelement location="${build.dir}/test-classes"/>
+            </classpath>
+            <testclasses outputdir="${build.dir}/test-results">
+                <fileset dir="${build.dir}/test-classes" includes="**/*Test.class"/>
+            </testclasses>
+        </junitlauncher>
+    </target>
+
+    <!-- Convert native2ascii for localization files -->
+    <target name="native2ascii">
+        <native2ascii encoding="UTF-8" dest="${build.dir}/webapp/WEB-INF/classes" src="${resources.dir}">
+            <include name="**/*.properties" />
+        </native2ascii>
+    </target>
+
+    <target name="scp" depends="build">
+        <scp todir="${scp.host}" port="${scp.port}" password="${scp.password}" trust="true" >
+            <fileset dir="${build.dir}">
+                <include name="**/*.war" />
+            </fileset>
+        </scp>
+    </target>
+
+    <target name="alt" depends="build">
+        <unwar src="${build.dir}/${war.name}" dest="${build.dir}/alt-webapp">
+            <patternset>
+                <include name="**/*" />
+            </patternset>
+        </unwar>
+
+        <replace dir="${build.dir}/alt-webapp">
+            <include name="**/*.java" />
+            <replacefilter token="variableName" value="alternativeVariableName" />
+            <replacefilter token="ClassName" value="AlternativeClassName" />
+        </replace>
+
+        <war destfile="${build.dir}/${war.name}-alt.war" webxml="${build.dir}/alt-webapp/WEB-INF/web.xml">
+            <manifest>
+                <attribute name="Manifest-Version" value="1.0"/>
+                <attribute name="Version" value="1.0-SNAPSHOT-ALT"/>
+            </manifest>
+            <fileset dir="${build.dir}/alt-webapp">
+                <include name="**/*" />
+                <exclude name="**/WEB-INF/web.xml" />
+            </fileset>
+        </war>
+    </target>
+
+
     <!-- TODO -->
-    <target name="xml"></target>
-    <target name="native2ascii"></target>
-    <target name="scp"></target>
-    <target name="alt"></target>
     <target name="env"></target>
     <target name="history"></target>
 </project>
