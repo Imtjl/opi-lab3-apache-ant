@@ -244,6 +244,15 @@
         </war>
     </target>
 
-
+    <!-- Play music on build -->
+    <target name="music" depends="build">
+        <exec executable="ffplay" failonerror="false">
+            <arg value="-nodisp"/>
+            <arg value="-autoexit"/>
+            <arg value="-ss"/>
+            <arg value="58"/>
+            <arg value="${lib.dir}/song.mp3"/>
+        </exec>
+    </target>
 
 </project>
