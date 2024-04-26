@@ -198,4 +198,52 @@
             <diff path="${basedir}" revision1="${last.working.revision}" revision2="HEAD" output="diff.txt" />
         </svn>
     </target>
+
+    <!-- Generate MD5 & SHA-1 hash -->
+    <target name="generate-checksums">
+        <delete file="${checksums.md5.file}" quiet="true"/>
+        <delete file="${checksums.sha1.file}" quiet="true"/>
+
+        <checksum algorithm="MD5" fileext=".md5">
+            <fileset dir="${build.dir}/webapp"/>
+        </checksum>
+        <checksum algorithm="SHA1" fileext=".sha1">
+            <fileset dir="${build.dir}/webapp"/>
+        </checksum>
+
+        <concat destfile="${checksums.md5.file}">
+            <fileset dir="${build.dir}/webapp" includes="**/*.md5"/>
+        </concat>
+        <concat destfile="${checksums.sha1.file}">
+            <fileset dir="${build.dir}/webapp" includes="**/*.sha1"/>
+        </concat>
+
+        <delete>
+            <fileset dir="${build.dir}/webapp" includes="**/*.md5"/>
+            <fileset dir="${build.dir}/webapp" includes="**/*.sha1"/>
+        </delete>
+    </target>
+
+    <!-- Generate docs -->
+    <target name="doc" depends="build, generate-checksums">
+        <mkdir dir="${build.dir}/javadoc"/>
+        <javadoc sourcepath="${src.dir}" destdir="${build.dir}/javadoc" packagenames="*">
+            <classpath refid="project.classpath" />
+        </javadoc>
+
+        <loadfile property="md5" srcFile="${checksums.md5.file}"/>
+        <loadfile property="sha1" srcFile="${checksums.sha1.file}"/>
+
+        <manifest file="${build.dir}/webapp/META-INF/MANIFEST.MF" mode="update">
+            <attribute name="MD5-Digest" value="${md5}"/>
+            <attribute name="SHA1-Digest" value="${sha1}"/>
+        </manifest>
+
+        <war destfile="${build.dir}/${war.name}" update="true">
+            <fileset dir="${build.dir}/javadoc"/>
+        </war>
+    </target>
+
+
+
 </project>
