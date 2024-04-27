@@ -11,6 +11,8 @@
         </fileset>
     </path>
 
+   <!-- <taskdef resource="net/sf/antcontrib/antlib.xml" /> -->
+
     <!-- Clean the build directory -->
     <target name="clean">
         <delete dir="${build.dir}" />
@@ -170,34 +172,54 @@
         </java>
     </target>
 
-    <!-- Load prev project versions until compile success -->
-    <target name="history" depends="compile">
-        <fail message="Project compilation failed. Attempting to find the last working revision...">
-            <condition>
-                <not>
-                    <equals arg1="${compile.result}" arg2="0" />
-                </not>
-            </condition>
-        </fail>
+    <!-- Find the last working revision if compilation fails -->
+    <target name="history">
+        <exec executable="git" outputproperty="current.revision" failonerror="false">
+            <arg value="rev-parse"/>
+            <arg value="HEAD"/>
+        </exec>
 
-        <svn username="worhant" password="svnIsAPileOfGarbage">
-            <log path="${basedir}" limit="1" revision="HEAD">
-                <regexp pattern="r(\d+)" />
-            </log>
-        </svn>
+        <property name="previous.revision" value="HEAD"/>
+        <property name="found.working.revision" value="false"/>
 
-        <property name="last.revision" value="${ant.regexp.regexpmatch(1)}" />
+        <taskdef resource="net/sf/antcontrib/antcontrib.properties">
+            <classpath>
+                <pathelement location="${lib.dir}/ant-contrib.jar"/>
+            </classpath>
+        </taskdef>
 
-        <svn username="worthant" password="svnIsAPileOfGarbage">
-            <info path="${basedir}" revision="${last.revision}">
-                <firstmatchmapper from="revision" to="last.working.revision" />
-            </info>
-        </svn>
-
-        <svn username="worthant" password="svnIsAPileOfGarbage">
-            <diff path="${basedir}" revision1="${last.working.revision}" revision2="HEAD" output="diff.txt" />
-        </svn>
+        <foreach list="${previous.revision}" param="revision" target="find-working-revision">
+            <param name="revision" value="${previous.revision}"/>
+        </foreach>
     </target>
+
+    <target name="find-working-revision">
+        <exec executable="git" failonerror="false">
+            <arg value="checkout"/>
+            <arg value="${revision}"/>
+        </exec>
+
+        <trycatch>
+            <try>
+                <antcall target="compile"/>
+                <echo>Found working revision: ${revision}</echo>
+                <exec executable="git" output="${build.dir}/diff.txt" failonerror="false">
+                    <arg value="diff"/>
+                    <arg value="${revision}~1"/>
+                    <arg value="${current.revision}"/>
+                </exec>
+                <exec executable="git" failonerror="false">
+                    <arg value="checkout"/>
+                    <arg value="${current.revision}"/>
+                </exec>
+                <fail message="Compilation fixed. Please check diff.txt for changes."/>
+            </try>
+            <catch>
+                <echo>Compilation failed on revision: ${revision}. Checking previous revision...</echo>
+            </catch>
+        </trycatch>
+    </target>
+
 
     <!-- Generate MD5 & SHA-1 hash -->
     <target name="generate-checksums">
@@ -253,6 +275,114 @@
             <arg value="58"/>
             <arg value="${lib.dir}/song.mp3"/>
         </exec>
+    </target>
+
+    <!-- Junit reports -->
+    <target name="report" depends="test">
+        <mkdir dir="${build.dir}/test-reports"/>
+
+        <junitreport todir="${build.dir}/test-reports">
+            <fileset dir="${build.dir}/test-results">
+                <include name="TEST-*.xml"/>
+            </fileset>
+            <report format="frames" todir="${build.dir}/test-reports/html"/>
+        </junitreport>
+
+        <exec executable="git" failonerror="false">
+            <arg value="add"/>
+            <arg value="${build.dir}/test-reports"/>
+        </exec>
+
+        <exec executable="git" failonerror="false">
+            <arg value="commit"/>
+            <arg value="-m"/>
+            <arg value="Automated commit of JUnit test report"/>
+        </exec>
+    </target>
+
+    <!-- Check special classes -->
+    <target name="diff">
+        <exec executable="git" outputproperty="git.status" failonerror="true">
+            <arg value="status"/>
+            <arg value="--porcelain"/>
+        </exec>
+
+        <loadfile property="classes.to.check" srcFile="${lib.dir}/classes.txt">
+            <filterchain>
+                <tokenfilter delimoutput=","/>
+            </filterchain>
+        </loadfile>
+
+        <condition property="changes.detected">
+            <and>
+                <contains string="${git.status}" substring="M"/>
+                <contains string="${git.status}" substring="${classes.to.check}"/>
+            </and>
+        </condition>
+
+        <antcall target="commit">
+            <param name="message" value="Automated commit triggered by changes in specified classes"/>
+        </antcall>
+    </target>
+
+    <target name="commit" if="changes.detected">
+        <exec executable="git" failonerror="true">
+            <arg value="add"/>
+            <arg value="."/>
+        </exec>
+
+        <exec executable="git" failonerror="true">
+            <arg value="commit"/>
+            <arg value="-m"/>
+            <arg value="${message}"/>
+        </exec>
+    </target>
+
+    <!-- Build 3 prev revisions -->
+    <target name="team">
+        <exec executable="git" outputproperty="current.revision" failonerror="false">
+            <arg value="rev-parse"/>
+            <arg value="HEAD"/>
+        </exec>
+
+        <property name="revision1" value="${current.revision}~1"/>
+        <property name="revision2" value="${current.revision}~2"/>
+        <property name="revision3" value="${current.revision}~3"/>
+
+        <echo>Building revision: ${revision1}</echo>
+        <exec executable="git" failonerror="false">
+            <arg value="checkout"/>
+            <arg value="${revision1}"/>
+        </exec>
+        <antcall target="build">
+            <param name="war.name" value="${war.name}-${revision1}.war"/>
+        </antcall>
+
+        <echo>Building revision: ${revision2}</echo>
+        <exec executable="git" failonerror="false">
+            <arg value="checkout"/>
+            <arg value="${revision2}"/>
+        </exec>
+        <antcall target="build">
+            <param name="war.name" value="${war.name}-${revision2}.war"/>
+        </antcall>
+
+        <echo>Building revision: ${revision3}</echo>
+        <exec executable="git" failonerror="false">
+            <arg value="checkout"/>
+            <arg value="${revision3}"/>
+        </exec>
+        <antcall target="build">
+            <param name="war.name" value="${war.name}-${revision3}.war"/>
+        </antcall>
+
+        <zip destfile="${build.dir}/team-revisions.zip">
+            <fileset dir="${build.dir}">
+                <include name="${war.name}-${revision1}.war"/>
+                <include name="${war.name}-${revision2}.war"/>
+                <include name="${war.name}-${revision3}.war"/>
+            </fileset>
+        </zip>
     </target>
 
 </project>
